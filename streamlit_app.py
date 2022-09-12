@@ -2,6 +2,7 @@
 
 from cProfile import label
 from datetime import datetime
+from tokenize import Ignore
 import altair as alt
 import numpy as np
 import pandas as pd
@@ -45,21 +46,32 @@ def load_data():
         f"https://njtransit-crowding-data.s3.amazonaws.com/njt-crowding-route-{route}.csv",
         names= cols,
         dtype=datatypes,
-        error_bad_lines=False,
+        on_bad_lines='skip',
         parse_dates=["timestamp"]
     )
     
-    st.dataframe(data)
-    breakpoint()
-    # drop no crowding data; encode crowding; change < 1 eta to 0
-    data.drop(data.loc[data['crowding']=='NO DATA'].index,inplace=True)
-    
-    # drop non-nyc destinations (119 only)
-    data.drop(data.loc[data['destination']=='NEW YORK'].index,inplace=True)
-    
+
     # drop those without ETA_min
     data.dropna(subset=['eta_min'])
     
+    # drop no crowding data; encode crowding; change < 1 eta to 0
+    data.drop(data.loc[data['crowding']=='NO DATA'].index,inplace=True)
+    
+    #TODO: check against ETA 0 also
+    # drop everything except ETA "< 1"
+    data.drop(
+        ~data.loc[data['eta_min']=='< 1'].index,
+        inplace=True
+        )
+    
+    # drop non-nyc destinations (119 only)
+    data.drop(data.loc[data['destination']=='BAYONNE'].index,inplace=True)
+    
+    
+    #FIXME: dubug from here
+    st.dataframe(data)
+    breakpoint()
+      
     # recode data    
     data['crowding_int'] = data['crowding'].replace({'LIGHT': 1, 'MEDIUM': 2, 'HEAVY': 3}).astype(int)
     data['eta_min'] = data['eta_min'].replace({'< 1': 0}).astype(int)
