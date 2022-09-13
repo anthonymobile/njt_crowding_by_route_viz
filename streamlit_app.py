@@ -9,11 +9,26 @@ import pandas as pd
 import pydeck as pdk
 import streamlit as st
 
+from NJTransitAPI import *
+
 #TODO: pass as kwarg from outside
 route = "119"
 
 # SETTING PAGE CONFIG TO WIDE MODE AND ADDING A TITLE AND FAVICON
 st.set_page_config(layout="wide", page_title="CROWDR: Visualizing Poor Service on NJTransit", page_icon=":bus:")
+
+# get route geometry
+def get_stoplist(route):
+    data, fetch_timestamp = get_xml_data('nj', 'route_points', route=route)
+    route_points = parse_xml_getRoutePoints(data)
+    
+    # this is manually select 1 of 4 defined paths for the 119 (group 0, path 1)
+    paths = route_points[0].paths
+    points = paths[1].points
+    stoplist = [(str(p.identity), p.st) for p in points if isinstance(p, Route.Stop)]
+
+    return pd.DataFrame(stoplist, columns=['stop_id','stop_name'])
+
 
 # LOAD DATA ONCE
 # @st.experimental_singleton
@@ -31,7 +46,7 @@ def load_data():
         "crowding"]
     
     datatypes = {
-                "timestamp": str,
+        "timestamp": str,
         "route": str,
         "stop_id": str, 
         "destination": str,
@@ -47,42 +62,39 @@ def load_data():
         names= cols,
         dtype=datatypes,
         on_bad_lines='skip',
-        parse_dates=["timestamp"]
+        # parse_dates=["timestamp"]
     )
     
-
     # drop those without ETA_min
     data.dropna(subset=['eta_min'])
     
     # drop no crowding data; encode crowding
     data.drop(data.loc[data['crowding']=='NO DATA'].index,inplace=True)
     
-    # #believe this is unneeded
-    # #recode <1 eta to 0
-    # data['eta_min'] = data['eta_min'].replace({'< 1': 0}).astype(str)
-    
-    # # drop everything except ETA "0"
-    # data.drop(
-    #     ~data.loc[data['eta_min']=='< 1'].index,
-    #     inplace=True
-    #     )
-    
     # drop non-nyc destinations (119 only)
     data.drop(data.loc[data['destination']=='BAYONNE'].index,inplace=True)
     
     #drop duplicate rows
-    data.drop_duplicates(subset=['vehicle_id','stop_id','eta_min'])
-    
-    st.write(data.shape)
-    st.dataframe(data)
-    breakpoint()
-      
+    data.drop_duplicates(
+        subset=['vehicle_id','eta_time'], 
+        keep=False
+        )
+
     # # recode data    
     # data['crowding_int'] = data['crowding'].replace({'LIGHT': 1, 'MEDIUM': 2, 'HEAVY': 3}).astype(int)
 
+    stoplist = get_stoplist(route)
+    
+    # fix timestamps
+    data['timestamp'] = pd.to_datetime(data['timestamp']).dt.tz_convert('America/New_York')
 
-    return data
+    data = pd.merge(
+        data,
+        stoplist,
+        on='stop_id',
+        how='left')
 
+    return data, stoplist
 
 
 # FILTER DATA FOR A SPECIFIC HOUR, CACHE
@@ -92,7 +104,9 @@ def filterdata(df, hour_selected):
 
 
 # STREAMLIT APP LAYOUT
-data = load_data()
+data, stoplist = load_data()
+# st.write(stoplist)
+# st.write(data)
 
 # LAYING OUT THE TOP SECTION OF THE APP
 row1_1, row1_2 = st.columns((2, 3))
@@ -113,32 +127,22 @@ def update_query_params():
     hour_selected = st.session_state["service_hour"]
     st.experimental_set_query_params(service_hour=hour_selected)
 
-
 with row1_1:
-    st.title("Overcrowding on the 119")
-    st.subheader("The view from Congress St and Webster Ave")
+    st.title("How Crowded is the 119?")
+    st.subheader("An investigation of NJTransit bus service in Jersey City Heights")
     hour_selected = st.slider(
         "Select hour of service", 0, 23, key="service_hour", on_change=update_query_params
     )
 
-
 with row1_2:
+    
     l = len(data)
     
-    st.write("""
-    ##
-    The 119 is one of the most important bus routes in The Heights, linking Central Avenue to New York City. But during rush hour, buses are often full by the time they reach Palisade Avenue, and bypass stranded passengers.
-    """)
-    
+    st.write("""The 119 is one of the most important bus routes in The Heights, linking Central Avenue to New York City. But during rush hour, buses are often full by the time they reach Palisade Avenue, and bypass stranded passengers.""")
 
-    st.write(
-    f"""The charts below summarize {l} observations scraped from NJTransit apps since {data['timestamp'].min().date()} to illustrate how bus overcrowding is experienced by riders at one stop where riders are often left behind. 
-    """)
-    st.write(
-        """
-         By sliding the slider on the left you can choose an hour of the day, and see how buses fill up as they approach this stop during different times of day.
-        """
-    )
+    st.write(f"""The charts below summarize {l} observations scraped from NJTransit apps since {data['timestamp'].min().date()} to illustrate how bus overcrowding is experienced by riders. """)
+    
+    st.write("""By sliding the slider on the left you can choose an hour of the day, and see how buses fill up as they approach this stop during different times of day.""")
     
 
 #######################################################
@@ -152,7 +156,7 @@ def plotdata3(df, hr):
     ]
 
     # https://stackoverflow.com/questions/50465860/groupby-and-count-on-dataframe-having-two-categorical-variables
-    array = filtered.groupby(['eta_min','crowding']).size().reset_index(name='count')
+    array = filtered.groupby(['stop_name','crowding']).size().reset_index(name='count')
         
     return array
     # return pd.DataFrame({"eta_min": array.index, "crowding": array})
@@ -163,92 +167,128 @@ plot_data3 = plotdata3(data, hour_selected)
 st.altair_chart(
     alt.Chart(plot_data3)
     .mark_bar(
-        size=20,
+        size=8,
         cornerRadiusTopLeft=3,
         cornerRadiusTopRight=3
     )
     .encode(
-        x=alt.X("eta_min:Q", scale=alt.Scale(nice=False), title="Minutes away"),
-        # y=alt.Y("count:Q", scale=alt.Scale(domain=[0, 3])),
-        y=alt.Y("count:Q", title="Number of Buses Observed ", axis=alt.Axis(tickMinStep=1)),
-        color="crowding:N"
+        x=alt.X(
+            "stop_name:N",
+            title="",
+            sort=list(stoplist['stop_name'])
+            ),
+        y=alt.Y("count:Q", title="Number of Buses Observed at This Stop", axis=alt.Axis(tickMinStep=1)),
+        color=alt.Color(
+            "crowding", sort=['LIGHT','MEDIUM','HEAVY']
+            ),
+        # order=alt.Order(
+        #     'crowding',sort='descending'
+        #     )
     )
     .configure_mark(opacity=0.4, color="red"),
     use_container_width=True,
 )
 
+st.altair_chart(
+    alt.Chart(plot_data3)
+    .mark_area()
+    .encode(
+        x=alt.X(
+            "stop_name:N",
+            title="",
+            sort=list(stoplist['stop_name'])
+            ),
+        y=alt.Y("count:Q", title="Number of Buses Observed ", axis=alt.Axis(tickMinStep=1)),
+        color=alt.Color(
+            "crowding", sort=['LIGHT','MEDIUM','HEAVY']
+            ),
+        order=alt.Order(
+            'crowding',sort='descending'
+            )
+    )
+    .configure_mark(opacity=0.4, color="red"),
+    use_container_width=True,
+)
 
-#######################################################
-# CROWDING HISTOGRAM
+# #######################################################
+# # CROWDING HISTOGRAM
 
 
-# FILTER DATA BY HOUR
-@st.experimental_memo
-def plotdata(df, hr):
-    filtered = data[
-        (df["timestamp"].dt.hour >= hr) & (df["timestamp"].dt.hour < (hr + 1))
-    ]
-    filtered['crowding_int'] = filtered['crowding'].replace({'LIGHT': 1, 'MEDIUM': 2, 'HEAVY': 3}).astype(int)
+# # FILTER DATA BY HOUR
+# @st.experimental_memo
+# def plotdata(df, hr):
+#     filtered = data[
+#         (df["timestamp"].dt.hour >= hr) & (df["timestamp"].dt.hour < (hr + 1))
+#     ]
+#     filtered['crowding_int'] = filtered['crowding'].replace({'LIGHT': 1, 'MEDIUM': 2, 'HEAVY': 3}).astype(int)
 
-
-    array = filtered.groupby('eta_min')['crowding_int'].mean()
+#     array = filtered.groupby('stop_id')['crowding_int'].mean()
     
-    return pd.DataFrame({"eta_min": array.index, "average_crowding": array})
+#     return pd.DataFrame({"stop_id": array.index, "average_crowding": array})
 
-plot_data = plotdata(data, hour_selected)
-
-
-st.write(
-    f"""**Average level of crowding on approaching buses at given ETA to Congress St & Webster Ave stop, between {hour_selected}:00 and {(hour_selected + 1) % 24}:00**"""
-)
+# plot_data = plotdata(data, hour_selected)
 
 
-st.altair_chart(
-    alt.Chart(plot_data)
-    .mark_area(
-        interpolate="natural",
-    )
-    .encode(
-        x=alt.X("eta_min:Q", scale=alt.Scale(nice=False)),
-        y=alt.Y("average_crowding:Q", scale=alt.Scale(domain=[0, 3])),
-        tooltip=["eta_min", "average_crowding"],
-    )
-    .configure_mark(opacity=0.2, color="red"),
-    use_container_width=True,
-)
+# st.write(
+#     f"""**Average level of crowding, between {hour_selected}:00 and {(hour_selected + 1) % 24}:00**"""
+# )
+
+
+# st.altair_chart(
+#     alt.Chart(plot_data)
+#     .mark_area(
+#         interpolate="natural",
+#     )
+#     .encode(
+#         x=alt.X("stop_id:N", scale=alt.Scale(nice=False)),
+#         y=alt.Y("average_crowding:Q", scale=alt.Scale(domain=[0, 3])),
+#         tooltip=["stop_id", "average_crowding"],
+#         # axis = alt.Axis(labels=['test label']) #substitute text tick mark labels?
+#     
+#     .configure_mark(opacity=0.2, color="red"),
+#     use_container_width=True,
+# )
 
 
 
-#######################################################
-# OBSERVATION HISTOGRAM
+# #######################################################
+# # OBSERVATION HISTOGRAM
 
-# FILTER DATA BY HOUR
-@st.experimental_memo
-def histdata(df, hr):
-    filtered = data[
-        (df["timestamp"].dt.hour >= hr) & (df["timestamp"].dt.hour < (hr + 1))
-    ]
-    hist = np.histogram(filtered["eta_min"], bins=60, range=(0, 60))[0]
-    return pd.DataFrame({"eta_min": range(60), "observations": hist})
+# # FILTER DATA BY HOUR
+# @st.experimental_memo
+# def histdata(df, hr):
+#     filtered = data[
+#         (df["timestamp"].dt.hour >= hr) & (df["timestamp"].dt.hour < (hr + 1))
+#     ]
+#     hist = np.histogram(filtered["eta_min"], bins=60, range=(0, 60))[0]
+#     return pd.DataFrame({"eta_min": range(60), "observations": hist})
 
 
-chart_data = histdata(data, hour_selected)
+# chart_data = histdata(data, hour_selected)
 
-# LAYING OUT THE HISTOGRAM SECTION
-st.write(
-    f"""**Number of observed approaching buses at given ETA to Congress St & Webster Ave stop, between {hour_selected}:00 and {(hour_selected + 1) % 24}:00**"""
-)
-st.altair_chart(
-    alt.Chart(chart_data)
-    .mark_area(
-        interpolate="step-after",
-    )
-    .encode(
-        x=alt.X("eta_min:Q", scale=alt.Scale(nice=False)),
-        y=alt.Y("observations:Q"),
-        tooltip=["eta_min", "observations"],
-    )
-    .configure_mark(opacity=0.2, color="red"),
-    use_container_width=True,
-)
+# # LAYING OUT THE HISTOGRAM SECTION
+# st.write(
+#     f"""**Number of observed approaching buses at given ETA to Congress St & Webster Ave stop, between {hour_selected}:00 and {(hour_selected + 1) % 24}:00**"""
+# )
+# st.altair_chart(
+#     alt.Chart(chart_data)
+#     .mark_area(
+#         interpolate="step-after",
+#     )
+#     .encode(
+#         x=alt.X("eta_min:Q", scale=alt.Scale(nice=False)),
+#         y=alt.Y("observations:Q"),
+#         tooltip=["eta_min", "observations"],
+#     )
+#     .configure_mark(opacity=0.2, color="red"),
+#     use_container_width=True,
+# )
+
+
+
+
+
+
+
+
 
