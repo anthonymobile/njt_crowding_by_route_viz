@@ -17,17 +17,29 @@ route = "119"
 # SETTING PAGE CONFIG TO WIDE MODE AND ADDING A TITLE AND FAVICON
 st.set_page_config(layout="wide", page_title="CROWDR: Visualizing Poor Service on NJTransit", page_icon=":bus:")
 
-# get route geometry
-def get_stoplist(route):
-    data, fetch_timestamp = get_xml_data('nj', 'route_points', route=route)
-    route_points = parse_xml_getRoutePoints(data)
-    
-    # this is manually select 1 of 4 defined paths for the 119 (group 0, path 1)
-    paths = route_points[0].paths
-    points = paths[1].points
-    stoplist = [(str(p.identity), p.st) for p in points if isinstance(p, Route.Stop)]
+class Bundle():
+    def __init__(self, stoplist, data):
+        self.stoplist = stoplist
+        self.data = data
 
-    return pd.DataFrame(stoplist, columns=['stop_id','stop_name'])
+
+# get route geometry and pack into a flat list (e.g. 2 services in 2 directions = 4 list items)
+def get_paths(route):
+    data, fetch_timestamp = get_xml_data('nj', 'route_points', route=route)
+    geometry = parse_xml_getRoutePoints(data)
+    
+    # unpack the first list of Routes
+    route = geometry[0]
+    
+    # # diagnostic
+    # st.write(type(route))
+    # for path in route.paths:
+    #     st.write(type(path))
+    #     st.write(path.get_stoplist())
+        
+    # return a list of Route.Path objects (which we can use get_stoplist(), or iterate over their Route.Path.points list)
+    return route.paths
+        
 
 
 # LOAD DATA ONCE
@@ -83,18 +95,39 @@ def load_data():
     # # recode data    
     # data['crowding_int'] = data['crowding'].replace({'LIGHT': 1, 'MEDIUM': 2, 'HEAVY': 3}).astype(int)
 
-    stoplist = get_stoplist(route)
+    paths = get_paths(route)
     
     # fix timestamps
     data['timestamp'] = pd.to_datetime(data['timestamp']).dt.tz_convert('America/New_York')
 
-    data = pd.merge(
-        data,
-        stoplist,
-        on='stop_id',
-        how='left')
+    # create path, data bundles for chart making
+    
+    bundles = []
+    
+    for path in paths:
 
-    return data, stoplist
+        # SECOND get_stoplist_df
+        stoplist = path.get_stoplist_df()
+        
+        # FIRST filter fetched data based on ? path id? stoplist ? d from stoplist?
+        df = data.???
+    
+        # THIRD join them
+        
+        df = pd.merge(
+            df,
+            stoplist,
+            on='stop_id',
+            how='left'
+            )
+        
+        # FOURTH pack them into a Bundle
+        bundle = Bundle(stoplist, data)
+        
+        # FIFTH path that Bundle into a list
+        bundles.append(bundle)
+    
+    return bundles
 
 
 # FILTER DATA FOR A SPECIFIC HOUR, CACHE
@@ -104,9 +137,10 @@ def filterdata(df, hour_selected):
 
 
 # STREAMLIT APP LAYOUT
-data, stoplist = load_data()
-# st.write(stoplist)
-# st.write(data)
+
+#######################################################
+# GET THE DATA AND STOPLIST BUNDLES
+bundles = load_data()
 
 # LAYING OUT THE TOP SECTION OF THE APP
 row1_1, row1_2 = st.columns((2, 3))
@@ -136,6 +170,7 @@ with row1_1:
 
 with row1_2:
     
+    #FIXME: len(bundles[0][0]?)
     l = len(data)
     
     st.write("""The 119 is one of the most important bus routes in The Heights, linking Central Avenue to New York City. But during rush hour, buses are often full by the time they reach Palisade Avenue, and bypass stranded passengers.""")
@@ -145,70 +180,72 @@ with row1_2:
     st.write("""By sliding the slider on the left you can choose an hour of the day, and see how buses fill up as they approach this stop during different times of day.""")
     
 
+
 #######################################################
-# CROWDING BAR CHART
+# CROWDING BAR CHARTS 
 
-# FILTER DATA BY HOUR
-@st.experimental_memo
-def plotdata3(df, hr):
-    filtered = data[
-        (df["timestamp"].dt.hour >= hr) & (df["timestamp"].dt.hour < (hr + 1))
-    ]
+for bundle in bundles:
 
-    # https://stackoverflow.com/questions/50465860/groupby-and-count-on-dataframe-having-two-categorical-variables
-    array = filtered.groupby(['stop_name','crowding']).size().reset_index(name='count')
-        
-    return array
-    # return pd.DataFrame({"eta_min": array.index, "crowding": array})
+    # FILTER DATA BY HOUR
+    @st.experimental_memo
+    def plotdata(df, hr):
+        filtered = bundle.data[
+            (df["timestamp"].dt.hour >= hr) & (df["timestamp"].dt.hour < (hr + 1))
+        ]
 
-plot_data3 = plotdata3(data, hour_selected)
+        # https://stackoverflow.com/questions/50465860/groupby-and-count-on-dataframe-having-two-categorical-variables
+        array = filtered.groupby(['stop_name','crowding']).size().reset_index(name='count')
+            
+        return array
+        # return pd.DataFrame({"eta_min": array.index, "crowding": array})
 
+    plot_data = plotdata(bundle.data, hour_selected)
 
-st.altair_chart(
-    alt.Chart(plot_data3)
-    .mark_bar(
-        size=8,
-        cornerRadiusTopLeft=3,
-        cornerRadiusTopRight=3
+    st.altair_chart(
+        alt.Chart(plot_data)
+        .mark_bar(
+            size=30,
+            cornerRadiusTopLeft=3,
+            cornerRadiusTopRight=3
+        )
+        .encode(
+            x=alt.X(
+                "stop_name:N",
+                title="",
+                sort=list(bundle.stoplist['stop_name'])
+                ),
+            y=alt.Y("count:Q", title="Number of Buses Observed at This Stop", axis=alt.Axis(tickMinStep=1)),
+            color=alt.Color(
+                "crowding:N", sort=['LIGHT','MEDIUM','HEAVY']
+                ),
+            order=alt.Order(
+                'crowding:N',sort='descending'
+                )
+        )
+        .configure_mark(opacity=0.4, color="red"),
+        use_container_width=True,
     )
-    .encode(
-        x=alt.X(
-            "stop_name:N",
-            title="",
-            sort=list(stoplist['stop_name'])
-            ),
-        y=alt.Y("count:Q", title="Number of Buses Observed at This Stop", axis=alt.Axis(tickMinStep=1)),
-        color=alt.Color(
-            "crowding", sort=['LIGHT','MEDIUM','HEAVY']
-            ),
-        # order=alt.Order(
-        #     'crowding',sort='descending'
-        #     )
-    )
-    .configure_mark(opacity=0.4, color="red"),
-    use_container_width=True,
-)
 
-st.altair_chart(
-    alt.Chart(plot_data3)
-    .mark_area()
-    .encode(
-        x=alt.X(
-            "stop_name:N",
-            title="",
-            sort=list(stoplist['stop_name'])
-            ),
-        y=alt.Y("count:Q", title="Number of Buses Observed ", axis=alt.Axis(tickMinStep=1)),
-        color=alt.Color(
-            "crowding", sort=['LIGHT','MEDIUM','HEAVY']
-            ),
-        order=alt.Order(
-            'crowding',sort='descending'
-            )
+    st.altair_chart(
+        alt.Chart(plot_data)
+        .mark_area()
+        .encode(
+            x=alt.X(
+                "stop_name:N",
+                title="",
+                sort=list(bundle.stoplist['stop_name'])
+                ),
+            y=alt.Y("count:Q", title="Number of Buses Observed ", axis=alt.Axis(tickMinStep=1)),
+            color=alt.Color(
+                "crowding:N", sort=['LIGHT','MEDIUM','HEAVY']
+                ),
+            order=alt.Order(
+                'crowding:N',sort='descending'
+                )
+        )
+        .configure_mark(opacity=0.4, color="red"),
+        use_container_width=True,
     )
-    .configure_mark(opacity=0.4, color="red"),
-    use_container_width=True,
-)
 
 # #######################################################
 # # CROWDING HISTOGRAM

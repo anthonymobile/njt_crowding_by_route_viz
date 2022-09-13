@@ -6,6 +6,7 @@ from datetime import datetime, date
 import typing
 import json
 from dateutil.parser import isoparse
+import pandas as pd
 
 # API like: https://github.com/harperreed/transitapi/wiki/Unofficial-Bustracker-API
 
@@ -77,6 +78,7 @@ class Bus(KeyValueData):
 class Route(KeyValueData):
 
     class Path(KeyValueData):
+        
         def __init__(self):
             KeyValueData.__init__(self)
             self.name = 'Path'
@@ -84,16 +86,24 @@ class Route(KeyValueData):
             self.id = ''
             self.d = ''
             self.dd = ''
+            
+        def get_stoplist_df(self):
+            stoplist = [(stop.d, stop.identity, stop.st) for stop in self.points]
+            cols = ['d','stop_id','stop_name']
+            return pd.DataFrame(
+                stoplist,
+                columns = cols
+            )
 
-    class Point(KeyValueData):
-        def __init__(self):
-            KeyValueData.__init__(self)
-            self.name = 'Point'
-            self.lat = ''
-            self.lon = ''
-            self.d = ''
-            # self.waypoint_id = '' # are we using this?
-            self.distance_to_prev_waypoint = ''
+    # class Point(KeyValueData):
+    #     def __init__(self):
+    #         KeyValueData.__init__(self)
+    #         self.name = 'Point'
+    #         self.lat = ''
+    #         self.lon = ''
+    #         self.d = ''
+    #         # self.waypoint_id = '' # are we using this?
+    #         self.distance_to_prev_waypoint = ''
 
     class Stop(KeyValueData):
         def __init__(self):
@@ -233,20 +243,21 @@ def parse_xml_getRoutePoints(data):
                             break
                         p = None
                         if not stop:
-                            p = Route.Point()
+                            # p = Route.Point()
+                            pass
                         else:
                             p = Route.Stop()
                             p.identity = _stop_id
                             p.st = _stop_st
-                        p.d = path.d
-                        p.lat = float(_cond_get_single(pt, 'lat'))
-                        p.lon = float(_cond_get_single(pt, 'lon'))
-                        p.waypoint_id = n
-                        if n != 0:
-                            p.distance_to_prev_waypoint = distance(p_prev.lat, p_prev.lon, p.lat, p.lon)
-                        p_prev = p
-                        n =+ 1
-                        path.points.append(p)
+                            p.d = path.d
+                            p.lat = float(_cond_get_single(pt, 'lat'))
+                            p.lon = float(_cond_get_single(pt, 'lon'))
+                            p.waypoint_id = n
+                            if n != 0:
+                                p.distance_to_prev_waypoint = distance(p_prev.lat, p_prev.lon, p.lat, p.lon)
+                            p_prev = p
+                            n =+ 1
+                            path.points.append(p)
                 route.paths.append(path)
                 routes.append(route)
             break
@@ -285,75 +296,6 @@ def get_xml_data_save_raw(source, function, raw_dir, **kwargs):
     handle.write(data)
     handle.close()
     return data
-
-
-
-
-# #--------------- HELPER FUNCTIONS ---------------
-
-# def unpack_query_results(query):
-#     return [dict(zip(tuple(query.keys()), i)) for i in query.cursor]
-
-# def query_builder(parameters):
-#     query_suffix = ''
-#     for field, value in parameters.items():
-#         if field == 'output':
-#             continue
-#         elif field == 'start':
-#             query_suffix = query_suffix + '{} >= "{}" AND ' \
-#                 .format('timestamp', isoparse(value.replace(" ", "+", 1)))
-#             # replace is a hack but gets the job done because + was stripped from url replaced by space
-#             continue
-#         elif field == 'end':
-#             query_suffix = query_suffix + '{} < "{}" AND ' \
-#                 .format('timestamp', isoparse(value.replace(" ", "+", 1)))
-#             continue
-#         elif field == 'rt':
-#             query_suffix = query_suffix + '{} = "{}" AND '.format('rt', value)
-#             continue
-#         else:
-#             query_suffix = query_suffix + '{} = "{}" AND '.format(field,value)
-#     query_suffix=query_suffix[:-4] # strip tailing ' AND'
-#     return query_suffix
-
-
-# def results_to_FeatureCollection(results):
-#     geojson = {'type': 'FeatureCollection', 'features': []}
-#     # for row in results['observations']:
-#     for row in results:
-#         feature = {'type': 'Feature',
-#                    'properties': {},
-#                    'geometry': {'type': 'Point',
-#                                 'coordinates': []}}
-#         feature['geometry']['coordinates'] = [float(row['lon']), float(row['lat'])]
-#         for k, v in row.items():
-#             if isinstance(v, (datetime, date)):
-#                 v = v.isoformat()
-#             feature['properties'][k] = v
-#         geojson['features'].append(feature)
-#     return geojson
-
-
-# #future test debug kepler output
-# def make_KeplerTable(query):
-#     results = query['observations']
-#     fields = [{"name":x} for x in dict.keys(results[0])]
-
-#     # make the fields list of dicts
-#     field_list =[]
-#     for f in fields:
-#         fmt='TBD'
-#         typ=type(f)
-#         # field_list.append("{name: '{}', format '{}', type:'{}'},".format(f,fmt,typ))
-#         # field_list.append("{name: '{}'},".format(f))
-#         field_list.append("{'TBD':'TBD',")
-#     # make the rows list of lists
-#     rows = []
-#     for r in results:
-#         (a, row)= zip(*r.items())
-#         rows.append(r)
-#     kepler_bundle = {"fields": fields, "rows": rows }
-#     return kepler_bundle
 
 
 def distance(lat1, lon1, lat2, lon2):
