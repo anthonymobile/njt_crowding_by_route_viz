@@ -54,27 +54,32 @@ def load_data():
     # drop those without ETA_min
     data.dropna(subset=['eta_min'])
     
-    # drop no crowding data; encode crowding; change < 1 eta to 0
+    # drop no crowding data; encode crowding
     data.drop(data.loc[data['crowding']=='NO DATA'].index,inplace=True)
     
-    #TODO: check against ETA 0 also
-    # drop everything except ETA "< 1"
-    data.drop(
-        ~data.loc[data['eta_min']=='< 1'].index,
-        inplace=True
-        )
+    # #believe this is unneeded
+    # #recode <1 eta to 0
+    # data['eta_min'] = data['eta_min'].replace({'< 1': 0}).astype(str)
+    
+    # # drop everything except ETA "0"
+    # data.drop(
+    #     ~data.loc[data['eta_min']=='< 1'].index,
+    #     inplace=True
+    #     )
     
     # drop non-nyc destinations (119 only)
     data.drop(data.loc[data['destination']=='BAYONNE'].index,inplace=True)
     
+    #drop duplicate rows
+    data.drop_duplicates(subset=['vehicle_id','stop_id','eta_min'])
     
-    #FIXME: dubug from here
+    st.write(data.shape)
     st.dataframe(data)
     breakpoint()
       
-    # recode data    
-    data['crowding_int'] = data['crowding'].replace({'LIGHT': 1, 'MEDIUM': 2, 'HEAVY': 3}).astype(int)
-    data['eta_min'] = data['eta_min'].replace({'< 1': 0}).astype(int)
+    # # recode data    
+    # data['crowding_int'] = data['crowding'].replace({'LIGHT': 1, 'MEDIUM': 2, 'HEAVY': 3}).astype(int)
+
 
     return data
 
