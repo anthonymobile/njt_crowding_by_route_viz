@@ -4,3 +4,4 @@ __pycache__/
 *.gz
 *.zip
 .ipynb_checkpoints
+.DS_Store
