@@ -90,15 +90,15 @@ def load_data():
         )
     data['crowding'] = data['crowding'].astype(cat_crowding)
 
-    # clean timestamp
-    data = data[data['timestamp'].notna()] #drop nulls
-    # data = data.drop(data[data['timestamp'].str.contains('LIGHT', na=False)].index) #drop ones with LIGHT in timestamp col
-    # data = data.drop(data[data['timestamp'].str.contains(':ne', na=False)].index) #drop ones with LIGHT in timestamp col
+    # # clean timestamp
+    # data = data[data['timestamp'].notna()] #drop nulls
+    # # data = data.drop(data[data['timestamp'].str.contains('LIGHT', na=False)].index) #drop ones with LIGHT in timestamp col
+    # # data = data.drop(data[data['timestamp'].str.contains(':ne', na=False)].index) #drop ones with LIGHT in timestamp col
     
-    data['timestamp'] = pd.to_datetime(  data['timestamp']).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+    # data['timestamp'] = pd.to_datetime(  data['timestamp']).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    # set timezone
-    data['timestamp'] = pd.to_datetime(data['timestamp']).dt.tz_convert('America/New_York')
+    # # set timezone
+    # data['timestamp'] = pd.to_datetime(data['timestamp']).dt.tz_convert('America/New_York')
 
     # create path, data bundles for chart making
     
