@@ -5,5 +5,10 @@ Adapted from a [Streamlit](https://streamlit.io) demo [written in pure Python](h
 ## Run this demo locally
 ```
 pip install --upgrade streamlit
-streamlit run https://raw.githubusercontent.com/streamlit/demo-uber-nyc-pickups/main/streamlit_app.py
+streamlit run streamlit_app.py
 ```
+
+## Deploy to streamlit cloud
+
+1. streamlit apps deploy frmo github, so push and then
+2. https://docs.streamlit.io/streamlit-cloud/get-started/deploy-an-app
