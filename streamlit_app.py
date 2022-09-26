@@ -1,105 +1,20 @@
-# -*- coding: utf-8 -*-
+import datetime as dt
 
 import altair as alt
-import pandas as pd
-from pandas.api.types import CategoricalDtype
-
 import streamlit as st
 
-from NJTransitAPI import *
+from LoadData import *
 
 #TODO: pass as kwarg from outside
 route = "119"
-hour_selected = "7"
 
 # SETTING PAGE CONFIG TO WIDE MODE AND ADDING A TITLE AND FAVICON
 st.set_page_config(layout="wide", page_title="CROWDR: Visualizing Poor Service on NJTransit", page_icon=":bus:")
 
-class Bundle():
-    def __init__(self, stoplist, dataframe):
-        self.stoplist = stoplist
-        self.dataframe = dataframe
 
-# get route geometry and pack into a flat list (e.g. 2 services in 2 directions = 4 list items)
-def get_paths(route):
-    data, fetch_timestamp = get_xml_data('nj', 'route_points', route=route)
-    geometry = parse_xml_getRoutePoints(data)
-    # unpack the first list of Routes
-    route = geometry[0]
-    return route.paths
-
-# LOAD DATA 
-def load_data():
-    
-    
-    data = pd.read_parquet(
-        f"https://njtransit-crowding-data.s3.amazonaws.com/njt-crowding-route-{route}.parquet"
-    )
-    
-    # drop those without ETA_min
-    data.dropna(subset=['eta_min'])
-    
-    # drop no crowding data; encode crowding
-    data.drop(data.loc[data['crowding']=='NO DATA'].index,inplace=True)
-    
-    # drop non-nyc destinations (119 only)
-    data.drop(data.loc[data['destination']=='BAYONNE'].index,inplace=True)
-    
-    #drop duplicate rows
-    data.drop_duplicates(
-        subset=['bus_id','eta_time'], 
-        keep=False
-        )
-    
-    # recode as ordered categorical type
-    # https://towardsdatascience.com/how-to-do-a-custom-sort-on-pandas-dataframe-ac18e7ea5320
-    cat_crowding = CategoricalDtype(
-        ['LIGHT', 'MEDIUM', 'HEAVY'],
-        ordered=True
-        )
-    data['crowding'] = data['crowding'].astype(cat_crowding)
-
-    # # clean timestamp
-    # data = data[data['timestamp'].notna()] #drop nulls
-    # # data = data.drop(data[data['timestamp'].str.contains('LIGHT', na=False)].index) #drop ones with LIGHT in timestamp col
-    # # data = data.drop(data[data['timestamp'].str.contains(':ne', na=False)].index) #drop ones with LIGHT in timestamp col
-    
-    # data['timestamp'] = pd.to_datetime(  data['timestamp']).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-
-    # # set timezone
-    # data['timestamp'] = pd.to_datetime(data['timestamp']).dt.tz_convert('America/New_York')
-
-    # create path, data bundles for chart making
-    
-    # get geometry
-    paths = get_paths(route)
-    
-    bundles = []
-    
-    for path in paths:
-
-        # FIRST get_stoplist_df
-        stoplist = path.get_stoplist_df()
-        
-        # second filter fetched data based on direction from Route.Path
-        df = data[data['destination'] == path.d]
-    
-        # THIRD join them so the df has stop info in it
-        df = pd.merge(
-            df,
-            stoplist,
-            on='stop_id',
-            how='left'
-            )
-        
-        # FOURTH pack them into a Bundle
-        bundle = Bundle(stoplist, df)
-        
-        # FIFTH path that Bundle into a list
-        bundles.append(bundle)
-    
-    return bundles
-
+#######################################################
+# GET THE DATA AND STOPLIST BUNDLES
+bundles = load_data(route)
 
 # FILTER DATA FOR A SPECIFIC HOUR, CACHE
 @st.experimental_memo
@@ -107,12 +22,10 @@ def filterdata(df, hour_selected):
     return df[df["timestamp"].dt.hour == hour_selected]
 
 
-# STREAMLIT APP LAYOUT
 
 #######################################################
-# GET THE DATA AND STOPLIST BUNDLES
-bundles = load_data()
-
+# STREAMLIT APP LAYOUT
+bundles = load_data(route)
 # LAYING OUT THE TOP SECTION OF THE APP
 row1_1, row1_2 = st.columns((2, 3))
 
@@ -124,8 +37,9 @@ if not st.session_state.get("url_synced", False):
         service_hour = int(st.experimental_get_query_params()["service_hour"][0])
         st.session_state["service_hour"] = service_hour
         st.session_state["url_synced"] = True
+    # OTHERWISE SET VIEW TO CURRENT HOUR
     except KeyError:
-        pass
+        st.session_state["service_hour"] = dt.datetime.now().hour
 
 # IF THE SLIDER CHANGES, UPDATE THE QUERY PARAM
 def update_query_params():
@@ -138,6 +52,15 @@ with row1_1:
     hour_selected = st.slider(
         "Select hour of service", 0, 23, key="service_hour", on_change=update_query_params
     )
+    
+    # from datetime import time
+
+    # appointment = st.slider(
+    #     "Schedule your appointment:",
+    #     value=(time(11, 30), time(12, 45)))
+    # st.write("You're scheduled for:", appointment)
+
+
 
 with row1_2:
     
