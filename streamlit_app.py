@@ -28,40 +28,9 @@ def get_paths(route):
     route = geometry[0]
     return route.paths
 
-# LOAD DATA ONCE
-@st.experimental_singleton
+# LOAD DATA 
 def load_data():
     
-    # cols = [
-    #     "timestamp",
-    #     "route",
-    #     "stop_id", 
-    #     "d",
-    #     "headsign",
-    #     "vehicle_id", 
-    #     "eta_min", 
-    #     "eta_time", 
-    #     "crowding"]
-    
-    # datatypes = {
-    #     "timestamp": str,
-    #     "route": str,
-    #     "stop_id": str, 
-    #     "d": str,
-    #     "headsign": str,
-    #     "vehicle_id": str, 
-    #     "eta_min": str,
-    #     "eta_time": str,
-    #     "crowding": str
-    # }
-    
-    # data = pd.read_csv(
-    #     f"https://njtransit-crowding-data.s3.amazonaws.com/njt-crowding-route-{route}.csv",
-    #     names= cols,
-    #     dtype=datatypes,
-    #     on_bad_lines='skip',
-    #     # parse_dates=["timestamp"]
-    # )
     
     data = pd.read_parquet(
         f"https://njtransit-crowding-data.s3.amazonaws.com/njt-crowding-route-{route}.parquet"
