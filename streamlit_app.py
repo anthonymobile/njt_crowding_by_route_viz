@@ -19,8 +19,9 @@ bundles = load_data(route)
 # FILTER DATA FOR A SPECIFIC HOUR, CACHE
 @st.experimental_memo
 def filterdata(df, hour_selected):
+    
+    #TODO: select a time range
     return df[df["timestamp"].dt.hour == hour_selected]
-
 
 
 #######################################################
@@ -53,8 +54,8 @@ with row1_1:
         "Select hour of service", 0, 23, key="service_hour", on_change=update_query_params
     )
     
+    #TODO: select a time range
     # from datetime import time
-
     # appointment = st.slider(
     #     "Schedule your appointment:",
     #     value=(time(11, 30), time(12, 45)))
@@ -64,10 +65,9 @@ with row1_1:
 
 with row1_2:
     
-
     import itertools
     num_observations = list(itertools.accumulate([len(b.dataframe) for b in bundles]))[0]
-    start_timestamp = bundles[0].dataframe['timestamp'].min().date().strftime('%B %d, %Y') #TODO: only operates on 1 df, do both and return earliest
+    start_timestamp = bundles[0].dataframe['timestamp'].min().date().strftime('%B %d, %Y')
         
     st.write("""The 119 is one of the most important bus routes in The Heights, linking Central Avenue to New York City. But during rush hour, buses are often full by the time they reach Palisade Avenue, and bypass stranded passengers.""")
 
@@ -79,6 +79,16 @@ with row1_2:
 #######################################################
 # CROWDING BAR CHARTS 
 
+# FILTER DATA BY HOUR
+@st.experimental_memo
+def plotdata(df, hr):
+    filtered = bundle.dataframe[
+        (df["timestamp"].dt.hour >= hr) & (df["timestamp"].dt.hour < (hr + 1))
+    ]
+
+    array = filtered.groupby(['stop_name','crowding']).size().reset_index(name='count')
+
+    return array
 
 #######################################################
 # NORMALIZED
@@ -90,25 +100,10 @@ for bundle in reversed(bundles):
     #TODO: for testing only, remove for production
     if bundle.stoplist.iloc[0]['d'] == 'Bayonne':
         continue
-    
-    st.header(f"To {bundle.stoplist.iloc[0]['d']}")
-
-    # FILTER DATA BY HOUR
-    @st.experimental_memo
-    def plotdata(df, hr):
-        filtered = bundle.dataframe[
-            (df["timestamp"].dt.hour >= hr) & (df["timestamp"].dt.hour < (hr + 1))
-        ]
-
-        #TODO: change the order of the categories from alpha to?
-        # https://stackoverflow.com/questions/50465860/groupby-and-count-on-dataframe-having-two-categorical-variables
-        array = filtered.groupby(['stop_name','crowding']).size().reset_index(name='count')
-
-        return array
 
     plot_data = plotdata(bundle.dataframe, hour_selected)
-    
-
+        
+    st.header(f"To {bundle.stoplist.iloc[0]['d']}")
 
     st.altair_chart(
         alt.Chart(plot_data)
@@ -145,35 +140,19 @@ for bundle in reversed(bundles):
 #######################################################
 # ABSOLUTE
 
-
 # reversed() because to NY tends to be 2nd
 for bundle in reversed(bundles):
     
     #TODO: for testing only, remove for production
     if bundle.stoplist.iloc[0]['d'] == 'Bayonne':
         continue
-    
-    
-    st.header(f"To {bundle.stoplist.iloc[0]['d']}")
-
-    # FILTER DATA BY HOUR
-    @st.experimental_memo
-    def plotdata(df, hr):
-        filtered = bundle.dataframe[
-            (df["timestamp"].dt.hour >= hr) & (df["timestamp"].dt.hour < (hr + 1))
-        ]
-
-        #TODO: change the order of the categories from alpha to?
-        # https://stackoverflow.com/questions/50465860/groupby-and-count-on-dataframe-having-two-categorical-variables
-        array = filtered.groupby(['stop_name','crowding']).size().reset_index(name='count')
-
-        return array
 
     plot_data = plotdata(bundle.dataframe, hour_selected)
+        
+    st.header(f"To {bundle.stoplist.iloc[0]['d']}")
 
     st.altair_chart(
         alt.Chart(plot_data)
-        # https://stackoverflow.com/questions/61342355/altair-stacked-area-with-custom-sorting
         .transform_calculate(
             order="{'HEAVY':0, 'MEDIUM': 1, 'LIGHT': 2}[datum.crowding]"  
             )
@@ -191,11 +170,7 @@ for bundle in reversed(bundles):
             y=alt.Y("count:Q", title="# of Observations", axis=alt.Axis(tickMinStep=1)),
             color=alt.Color(
                 "crowding:N", sort=['LIGHT','MEDIUM','HEAVY']
-                # "crowding:N", sort=['HEAVY', 'MEDIUM','LIGHT']
                 ),
-            # order=alt.Order(
-            #     'crowding:N',sort='descending'
-            #     )
             order="order:O"
         )
         .configure_mark(opacity=0.7, color="red"),
