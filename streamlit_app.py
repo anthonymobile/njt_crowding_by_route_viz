@@ -1,4 +1,4 @@
-import datetime as dt
+from datetime import datetime
 
 import altair as alt
 import streamlit as st
@@ -10,13 +10,14 @@ from LoadData import *
 route = "119"
 
 # https://stackoverflow.com/questions/4563272/how-to-convert-a-utc-datetime-to-a-local-datetime-using-only-standard-library
-from datetime import datetime
-server_time = datetime.utcnow()
-from zoneinfo import ZoneInfo
-utc = ZoneInfo('UTC')
-localtz = ZoneInfo('America/New_York')
-utctime = server_time.replace(tzinfo=utc)
-localtime = utctime.astimezone(localtz)
+def get_localtime():
+    server_time = datetime.utcnow()
+    from zoneinfo import ZoneInfo
+    utc = ZoneInfo('UTC')
+    localtz = ZoneInfo('America/New_York')
+    utctime = server_time.replace(tzinfo=utc)
+    localtime = utctime.astimezone(localtz)
+    return localtime
 
 # SETTING PAGE CONFIG TO WIDE MODE AND ADDING A TITLE AND FAVICON
 st.set_page_config(layout="wide", page_title="CROWDR: Visualizing Poor Service on NJTransit", page_icon=":bus:")
@@ -52,7 +53,7 @@ if not st.session_state.get("url_synced", False):
         st.session_state["url_synced"] = True
     # OTHERWISE SET VIEW TO CURRENT HOUR
     except KeyError:
-        st.session_state["service_hour"] = dt.datetime.now().hour
+        st.session_state["service_hour"] = get_localtime().hour
 
 # IF THE SLIDER CHANGES, UPDATE THE QUERY PARAM
 def update_query_params():
@@ -67,7 +68,7 @@ def update_query_params():
 #     st.experimental_set_query_params(service_hour=hour_selected)
 
 with row1_1:
-    st.write(f'time: {localtime}')
+    st.write(f'time: {get_localtime()}')
     st.title("How Crowded is the 119?")
     st.subheader("An investigation of NJTransit bus service in Jersey City Heights")
     hour_selected = st.slider(
