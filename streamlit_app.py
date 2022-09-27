@@ -61,6 +61,7 @@ def update_query_params():
 
 with row1_1:
     st.write(f'timezone: {os.environ["TZ"]}')
+    st.write(dt.datetime.now())
     st.title("How Crowded is the 119?")
     st.subheader("An investigation of NJTransit bus service in Jersey City Heights")
     hour_selected = st.slider(
