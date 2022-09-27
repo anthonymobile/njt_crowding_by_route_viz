@@ -10,7 +10,6 @@ from LoadData import *
 route = "119"
 
 os.environ['TZ'] = 'America/New_York'
-st.write(f'timezone: {os.environ["TZ"]}')
 
 # SETTING PAGE CONFIG TO WIDE MODE AND ADDING A TITLE AND FAVICON
 st.set_page_config(layout="wide", page_title="CROWDR: Visualizing Poor Service on NJTransit", page_icon=":bus:")
@@ -61,6 +60,7 @@ def update_query_params():
 #     st.experimental_set_query_params(service_hour=hour_selected)
 
 with row1_1:
+    st.write(f'timezone: {os.environ["TZ"]}')
     st.title("How Crowded is the 119?")
     st.subheader("An investigation of NJTransit bus service in Jersey City Heights")
     hour_selected = st.slider(
