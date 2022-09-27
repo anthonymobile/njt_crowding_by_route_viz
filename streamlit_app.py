@@ -72,7 +72,7 @@ with row1_1:
     st.subheader("An investigation of NJTransit bus service in Jersey City Heights")
     
     hour_selected = st.slider(
-        f"It's currently {get_localtime()}). Choose another hour to view.", 0, 23, key="service_hour", on_change=update_query_params
+        f"It's currently {get_localtime().strftime('%H:%M')}. Choose another hour to view.", 0, 23, key="service_hour", on_change=update_query_params
     )
     
     #TODO: select a time range
