@@ -8,6 +8,8 @@ from LoadData import *
 #TODO: pass as kwarg from outside
 route = "119"
 
+os.environ['TZ'] = 'America/New_York'
+
 # SETTING PAGE CONFIG TO WIDE MODE AND ADDING A TITLE AND FAVICON
 st.set_page_config(layout="wide", page_title="CROWDR: Visualizing Poor Service on NJTransit", page_icon=":bus:")
 
@@ -19,10 +21,12 @@ bundles = load_data(route)
 # FILTER DATA FOR A SPECIFIC HOUR, CACHE
 @st.experimental_memo
 def filterdata(df, hour_selected):
-    
-    #TODO: select a time range
     return df[df["timestamp"].dt.hour == hour_selected]
 
+# #TODO: select a time range
+# @st.experimental_memo
+# def filterdata(df, t0, t1):
+#     return ...
 
 #######################################################
 # STREAMLIT APP LAYOUT
@@ -46,6 +50,13 @@ if not st.session_state.get("url_synced", False):
 def update_query_params():
     hour_selected = st.session_state["service_hour"]
     st.experimental_set_query_params(service_hour=hour_selected)
+
+#TODO: select a time range    
+# # IF THE SLIDER CHANGES, UPDATE THE QUERY PARAM
+# def update_query_params():
+#     t0 = st.session_state["t0"]
+#     t1 = st.session_state["t1"]
+#     st.experimental_set_query_params(service_hour=hour_selected)
 
 with row1_1:
     st.title("How Crowded is the 119?")
