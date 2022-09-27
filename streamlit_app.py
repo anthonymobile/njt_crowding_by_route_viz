@@ -125,6 +125,8 @@ for bundle in reversed(bundles):
     plot_data = plotdata(bundle.dataframe, hour_selected)
         
     st.header(f"To {bundle.stoplist.iloc[0]['d']}")
+    st.subheader("This chart shows the number of percentage of buses observed at each stop by how crowded they are. This roughly corresponds to how likely you are to find a bus at that stop with that level of crowding during this time of day.")
+
 
     st.altair_chart(
         alt.Chart(plot_data)
@@ -143,7 +145,7 @@ for bundle in reversed(bundles):
                 sort=list(bundle.stoplist['stop_name'])
                 ),
             y=alt.Y("count:Q", 
-                    title="percent of observations",
+                    title="percent of buses",
                     stack="normalize",
                     axis=alt.Axis(format="p",
                                   )
@@ -171,6 +173,7 @@ for bundle in reversed(bundles):
     plot_data = plotdata(bundle.dataframe, hour_selected)
         
     st.header(f"To {bundle.stoplist.iloc[0]['d']}")
+    st.subheader("This chart shows the number of buses observed at each stop. This roughly corresponds to how fast buses are moving in that area (if buses get stuck in traffic, we will observe them there more often).")
 
     st.altair_chart(
         alt.Chart(plot_data)
