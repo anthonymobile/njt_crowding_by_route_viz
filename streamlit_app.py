@@ -2,6 +2,7 @@ import datetime as dt
 
 import altair as alt
 import streamlit as st
+import os
 
 from LoadData import *
 
@@ -9,6 +10,7 @@ from LoadData import *
 route = "119"
 
 os.environ['TZ'] = 'America/New_York'
+st.write(f'timezone: {os.environ["TZ"]}')
 
 # SETTING PAGE CONFIG TO WIDE MODE AND ADDING A TITLE AND FAVICON
 st.set_page_config(layout="wide", page_title="CROWDR: Visualizing Poor Service on NJTransit", page_icon=":bus:")
