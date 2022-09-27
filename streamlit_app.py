@@ -9,7 +9,14 @@ from LoadData import *
 #TODO: pass as kwarg from outside
 route = "119"
 
-os.environ['TZ'] = 'America/New_York'
+# https://stackoverflow.com/questions/4563272/how-to-convert-a-utc-datetime-to-a-local-datetime-using-only-standard-library
+from datetime import datetime
+server_time = datetime.utcnow()
+from zoneinfo import ZoneInfo
+utc = ZoneInfo('UTC')
+localtz = ZoneInfo('America/New_York')
+utctime = server_time.replace(tzinfo=utc)
+localtime = utctime.astimezone(localtz)
 
 # SETTING PAGE CONFIG TO WIDE MODE AND ADDING A TITLE AND FAVICON
 st.set_page_config(layout="wide", page_title="CROWDR: Visualizing Poor Service on NJTransit", page_icon=":bus:")
@@ -60,8 +67,7 @@ def update_query_params():
 #     st.experimental_set_query_params(service_hour=hour_selected)
 
 with row1_1:
-    st.write(f'timezone: {os.environ["TZ"]}')
-    st.write(dt.datetime.now())
+    st.write(f'time: {localtime}')
     st.title("How Crowded is the 119?")
     st.subheader("An investigation of NJTransit bus service in Jersey City Heights")
     hour_selected = st.slider(
