@@ -41,7 +41,7 @@ def filterdata(df, hour_selected):
 # STREAMLIT APP LAYOUT
 bundles = load_data(route)
 # LAYING OUT THE TOP SECTION OF THE APP
-row1_1, row1_2 = st.columns((2, 3))
+# row1_1, row1_2 = st.columns((2, 3))
 
 # SEE IF THERE'S A QUERY PARAM IN THE URL (e.g. ?service_hour=2)
 # THIS ALLOWS YOU TO PASS A STATEFUL URL TO SOMEONE WITH A SPECIFIC HOUR SELECTED,
@@ -67,34 +67,30 @@ def update_query_params():
 #     t1 = st.session_state["t1"]
 #     st.experimental_set_query_params(service_hour=hour_selected)
 
-with row1_1:
-    st.title("How Crowded is the 119?")
-    st.subheader("An investigation of NJTransit bus service in Jersey City Heights")
-    
-    hour_selected = st.slider(
-        f"It's currently {get_localtime().strftime('%H:%M')}. Choose another hour to view.", 0, 23, key="service_hour", on_change=update_query_params
-    )
-    
-    #TODO: select a time range
-    # from datetime import time
-    # appointment = st.slider(
-    #     "Schedule your appointment:",
-    #     value=(time(11, 30), time(12, 45)))
-    # st.write("You're scheduled for:", appointment)
+st.title("How Crowded is the 119?")
+st.subheader("An investigation of NJTransit bus service in Jersey City Heights")
 
-
-
-with row1_2:
+import itertools
+num_observations = list(itertools.accumulate([len(b.dataframe) for b in bundles]))[0]
+start_timestamp = bundles[0].dataframe['timestamp'].min().date().strftime('%B %d, %Y')
     
-    import itertools
-    num_observations = list(itertools.accumulate([len(b.dataframe) for b in bundles]))[0]
-    start_timestamp = bundles[0].dataframe['timestamp'].min().date().strftime('%B %d, %Y')
-        
-    st.write("""The 119 is one of the most important bus routes in The Heights, linking Central Avenue to New York City. But during rush hour, buses are often full by the time they reach Palisade Avenue, and bypass stranded passengers.""")
+st.write("""The 119 is one of the most important bus routes in The Heights, linking Central Avenue to New York City. But during rush hour, buses are often full by the time they reach Palisade Avenue, and bypass stranded passengers.""")
 
-    st.write(f"""The charts below summarizes {num_observations:,}  observations scraped from NJTransit since {start_timestamp} to illustrate how bus overcrowding is experienced by riders. """)
-    
-    st.write("""By sliding the slider on the left you can choose an hour of the day, and see how buses fill up as they approach this stop during different times of day.""")
+st.write(f"""The charts below summarizes {num_observations:,}  observations scraped from NJTransit since {start_timestamp} to illustrate how bus overcrowding is experienced by riders. """)
+
+st.write("""By sliding the slider on the left you can choose an hour of the day, and see how buses fill up as they approach this stop during different times of day.""")
+
+hour_selected = st.slider(
+    f"It's currently {get_localtime().strftime('%H:%M')}. Choose another hour to view.", 0, 23, key="service_hour", on_change=update_query_params
+)
+
+#TODO: select a time range
+# from datetime import time
+# appointment = st.slider(
+#     "Schedule your appointment:",
+#     value=(time(11, 30), time(12, 45)))
+# st.write("You're scheduled for:", appointment)
+
     
 
 #######################################################
@@ -125,7 +121,7 @@ for bundle in reversed(bundles):
     plot_data = plotdata(bundle.dataframe, hour_selected)
         
     st.header(f"To {bundle.stoplist.iloc[0]['d']}")
-    st.subheader("This chart shows the number of percentage of buses observed at each stop by how crowded they are. This roughly corresponds to how likely you are to find a bus at that stop with that level of crowding during this time of day.")
+    st.write("This chart shows the number of percentage of buses observed at each stop by how crowded they are. This roughly corresponds to how likely you are to find a bus at that stop with that level of crowding during this time of day.")
 
 
     st.altair_chart(
@@ -173,7 +169,7 @@ for bundle in reversed(bundles):
     plot_data = plotdata(bundle.dataframe, hour_selected)
         
     st.header(f"To {bundle.stoplist.iloc[0]['d']}")
-    st.subheader("This chart shows the number of buses observed at each stop. This roughly corresponds to how fast buses are moving in that area (if buses get stuck in traffic, we will observe them there more often).")
+    st.write("This chart shows the number of buses observed at each stop. This roughly corresponds to how fast buses are moving in that area (if buses get stuck in traffic, we will observe them there more often).")
 
     st.altair_chart(
         alt.Chart(plot_data)
