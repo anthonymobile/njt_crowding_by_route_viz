@@ -3,7 +3,8 @@ from datetime import datetime
 import altair as alt
 import streamlit as st
 import os
-
+import itertools
+    
 from LoadData import *
 
 #TODO: pass as kwarg from outside
@@ -41,7 +42,9 @@ def filterdata(df, hour_selected):
 # STREAMLIT APP LAYOUT
 bundles = load_data(route)
 # LAYING OUT THE TOP SECTION OF THE APP
-# row1_1, row1_2 = st.columns((2, 3))
+
+col1, col2 = st.columns(2)
+
 
 # SEE IF THERE'S A QUERY PARAM IN THE URL (e.g. ?service_hour=2)
 # THIS ALLOWS YOU TO PASS A STATEFUL URL TO SOMEONE WITH A SPECIFIC HOUR SELECTED,
@@ -67,22 +70,25 @@ def update_query_params():
 #     t1 = st.session_state["t1"]
 #     st.experimental_set_query_params(service_hour=hour_selected)
 
-st.title("How Crowded is the 119?")
-st.subheader("An investigation of NJTransit bus service in Jersey City Heights")
 
-import itertools
-num_observations = list(itertools.accumulate([len(b.dataframe) for b in bundles]))[0]
-start_timestamp = bundles[0].dataframe['timestamp'].min().date().strftime('%B %d, %Y')
-    
-st.write("""The 119 is one of the most important bus routes in The Heights, linking Central Avenue to New York City. But during rush hour, buses are often full by the time they reach Palisade Avenue, and bypass stranded passengers.""")
+with col1:
+    st.title("How Crowded is the 119?")
+    st.subheader("An investigation of NJTransit bus service in Jersey City Heights")
 
-st.write(f"""The charts below summarizes {num_observations:,}  observations scraped from NJTransit since {start_timestamp} to illustrate how bus overcrowding is experienced by riders. """)
+with col2:
 
-st.write("""By sliding the slider on the left you can choose an hour of the day, and see how buses fill up as they approach this stop during different times of day.""")
+    num_observations = list(itertools.accumulate([len(b.dataframe) for b in bundles]))[0]
+    start_timestamp = bundles[0].dataframe['timestamp'].min().date().strftime('%B %d, %Y')
+        
+    st.write("""The 119 is one of the most important bus routes in The Heights, linking Central Avenue to New York City. But during rush hour, buses are often full by the time they reach Palisade Avenue, and bypass stranded passengers.""")
 
-hour_selected = st.slider(
-    f"It's currently {get_localtime().strftime('%H:%M')}. Choose another hour to view.", 0, 23, key="service_hour", on_change=update_query_params
-)
+    st.write(f"""The charts below summarizes {num_observations:,}  observations scraped from NJTransit since {start_timestamp} to illustrate how bus overcrowding is experienced by riders. """)
+
+    st.write("""By sliding the slider on the left you can choose an hour of the day, and see how buses fill up as they approach this stop during different times of day.""")
+
+    hour_selected = st.slider(
+        f"It's currently {get_localtime().strftime('%H:%M')}. Choose another hour to view.", 0, 23, key="service_hour", on_change=update_query_params
+    )
 
 #TODO: select a time range
 # from datetime import time
