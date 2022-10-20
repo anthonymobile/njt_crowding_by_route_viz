@@ -110,6 +110,8 @@ def plotdata(df, hr):
 #######################################################
 # NORMALIZED
 
+# ABSOLUTE
+st.header("How Crowded Are Buses on Average?")
 
 # reversed() because to NY tends to be 2nd
 for bundle in reversed(bundles):
@@ -120,7 +122,7 @@ for bundle in reversed(bundles):
 
     plot_data = plotdata(bundle.dataframe, hour_selected)
         
-    st.header(f"To {bundle.stoplist.iloc[0]['d']}")
+    st.subheader(f"To {bundle.stoplist.iloc[0]['d']}")
     st.write("This chart shows the number of percentage of buses observed at each stop by how crowded they are. This roughly corresponds to how likely you are to find a bus at that stop with that level of crowding during this time of day.")
 
 
@@ -154,46 +156,3 @@ for bundle in reversed(bundles):
         .configure_mark(opacity=0.7, color="red"),
         use_container_width=True,
     )
-
-
-#######################################################
-# ABSOLUTE
-
-# reversed() because to NY tends to be 2nd
-for bundle in reversed(bundles):
-    
-    #TODO: for testing only, remove for production
-    if bundle.stoplist.iloc[0]['d'] == 'Bayonne':
-        continue
-
-    plot_data = plotdata(bundle.dataframe, hour_selected)
-        
-    st.header(f"To {bundle.stoplist.iloc[0]['d']}")
-    st.write("This chart shows the number of buses observed at each stop. This roughly corresponds to how fast buses are moving in that area (if buses get stuck in traffic, we will observe them there more often).")
-
-    st.altair_chart(
-        alt.Chart(plot_data)
-        .transform_calculate(
-            order="{'HEAVY':0, 'MEDIUM': 1, 'LIGHT': 2}[datum.crowding]"  
-            )
-        .mark_bar(
-            size=10,
-            cornerRadiusTopLeft=3,
-            cornerRadiusTopRight=3
-        )
-        .encode(
-            x=alt.X(
-                "stop_name:N",
-                title="",
-                sort=list(bundle.stoplist['stop_name'])
-                ),
-            y=alt.Y("count:Q", title="# of Observations", axis=alt.Axis(tickMinStep=1)),
-            color=alt.Color(
-                "crowding:N", sort=['LIGHT','MEDIUM','HEAVY']
-                ),
-            order="order:O"
-        )
-        .configure_mark(opacity=0.7, color="red"),
-        use_container_width=True,
-    )
-
