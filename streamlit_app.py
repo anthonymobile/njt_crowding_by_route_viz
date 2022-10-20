@@ -110,15 +110,15 @@ def plotdata(df, hr):
 #######################################################
 # NORMALIZED
 
-# ABSOLUTE
-st.header("How Crowded Are Buses on Average?")
+# # ABSOLUTE
+# st.header("How Crowded Are Buses?")
 
 # reversed() because to NY tends to be 2nd
 for bundle in reversed(bundles):
     
-    #TODO: for testing only, remove for production
-    if bundle.stoplist.iloc[0]['d'] == 'Bayonne':
-        continue
+    # #TODO: for testing only, remove for production
+    # if bundle.stoplist.iloc[0]['d'] == 'Bayonne':
+    #     continue
 
     plot_data = plotdata(bundle.dataframe, hour_selected)
         
